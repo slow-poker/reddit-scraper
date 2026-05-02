@@ -19,12 +19,12 @@ def scrape_reddit() -> list[dict]:
 
         all_data = []
         for subreddit in subreddits:
-            url = 'https://old.reddit.com/r/' + subreddit + '/?limit=5'
+            subreddit_url = 'https://old.reddit.com/r/' + subreddit + '/?limit=2'
             print(f'Scraping for: {subreddit}')
 
             try:
                 #send http request
-                response = s.get(url, timeout=10)
+                response = s.get(subreddit_url, timeout=10)
                 response.raise_for_status()
 
                 #html parser object
@@ -37,9 +37,9 @@ def scrape_reddit() -> list[dict]:
                 for post in posts:
                     post_data = {
                         'subreddit_name' : subreddit,
-                        'url' : url,
                         'title' : post.find('a', class_='title').get_text(),
-                        'author' : post.get('data-author', 'No author'),
+                        'url' : "https://old.reddit.com" + post.find('a', class_='title').get('href'),
+                        'author' : post.get('data-author'),
                         'data_rank' : post.get('data-rank')
                         #'scraped_at' : time.strftime('%Y-%m-%d %H:%M%S')
                     }
