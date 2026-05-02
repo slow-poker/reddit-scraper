@@ -19,7 +19,7 @@ def scrape_reddit() -> list[dict]:
 
         all_data = []
         for subreddit in subreddits:
-            subreddit_url = 'https://old.reddit.com/r/' + subreddit + '/?limit=2'
+            subreddit_url = 'https://old.reddit.com/r/' + subreddit + '/?limit=100'
             print(f'Scraping for: {subreddit}')
 
             try:
