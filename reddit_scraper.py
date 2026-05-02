@@ -8,18 +8,19 @@ from bs4 import BeautifulSoup
 
 def scrape_reddit() -> list[dict]:
     subreddits = [
-        "https://www.reddit.com/r/Python"
+        'Python'
     ]
 
     with requests.Session() as s:
+        #generic user agent so that we aren't marked as a bot.
         s.headers.update({
-                'User-Agent' : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
+                'User-Agent' : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36'
             })
 
         all_data = []
-        for url in subreddits:
-            subreddit_name = url.split("/")[-1]
-            print(f'Scraping for: {subreddit_name}')
+        for subreddit in subreddits:
+            url = 'https://old.reddit.com/r/' + subreddit + '/?limit=5'
+            print(f'Scraping for: {subreddit}')
 
             try:
                 #send http request
@@ -27,18 +28,26 @@ def scrape_reddit() -> list[dict]:
                 response.raise_for_status()
 
                 #html parser object
-                soup = BeautifulSoup(response.content, "html.parser")
+                soup = BeautifulSoup(response.content, 'html.parser')
 
-                subreddit_data = {
-                    "subreddit_name" : subreddit_name,
-                    "url" : url,
-                    "title" : soup.title.string if soup.title else "No title",
-                    "scraped_at" : time.strftime("%Y-%m-%d %H:%M%S")
-                }
+                #only posts have data-rank attribute
+                posts = soup.find_all('div', attrs={'data-rank' : True} )
+                post_list = []
+                post_data = {}
+                for post in posts:
+                    post_data = {
+                        'subreddit_name' : subreddit,
+                        'url' : url,
+                        'title' : post.find('a', class_='title').get_text(),
+                        'author' : post.get('data-author', 'No author'),
+                        'data_rank' : post.get('data-rank')
+                        #'scraped_at' : time.strftime('%Y-%m-%d %H:%M%S')
+                    }
+                    post_list.append(post_data)
             except Exception as e:
                 print(f'Error: {e}')
             
-            return subreddit_data
+            return post_list
 
 
 def main() -> None:
@@ -53,16 +62,20 @@ def main() -> None:
         print('There is no data')
 
 #keep for vscode debugger
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
 
 
-#Optimizations made
+#OPTIMIZATIONS MADE
 #1. switched from requests to sessions with TCP keep connection alive to reduce overhead
 #2. 
 
+#TO-DO
+#-take subreddit names from arg or file
+#-error handling
+#-multithreading
+#-randomized delays?
 
-#TODO
-#1. take subreddit names from arg or file
-#2. fix "Reddit - Please wait for verification" issue
-#3. 
+#FIXED
+#PRAW module needs lengthy approval ---> use beautiful soup
+#-fix 'Reddit - Please wait for verification' issue ---> use old.reddit.com
