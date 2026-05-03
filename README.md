@@ -1,4 +1,4 @@
-```bash
+```text
 Group 5 Reddit Web Scraper Part A
 
 options:
