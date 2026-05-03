@@ -1,5 +1,6 @@
 ```text
-usage: reddit_scraper.py [-h] (-f FILE | -t SUB1 [SUB1 ...]) [-p POSTS] [-c {hot,new,rising,controversial,top}]
+usage: reddit_scraper.py [-h] (-f FILE | -t SUB1 [SUB1 ...]) [-p POSTS]
+                         [-c {hot,new,rising,controversial,top}]
 
 Group 5 Reddit Web Scraper Part A
 
