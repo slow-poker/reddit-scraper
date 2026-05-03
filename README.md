@@ -1,3 +1,4 @@
+```bash
 Group 5 Reddit Web Scraper Part A
 
 options:
@@ -9,3 +10,4 @@ options:
   -p POSTS, --posts POSTS                           Max posts to pull per
                                                     subreddit [0-1000]
   -c {hot,new,rising,controversial,top}, --category {hot,new,rising,controversial,top}
+```
