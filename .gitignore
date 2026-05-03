@@ -1,0 +1,6 @@
+#modules 
+.venv
+
+#generated output
+output.txt
+results.txt
