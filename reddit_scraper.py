@@ -4,7 +4,6 @@
 import requests
 import argparse
 import sys
-import os
 import time
 import random
 from datetime import datetime
@@ -48,7 +47,7 @@ if args.size:
 
 #handles file size checks and writes - assumes it is called within a try{} block to reduce overhead
 def write_with_check(dict_data, curr_file, subreddit, counter):
-    data = str(dict_data)
+    data = str(dict_data) + '\n'
     data_size = len(data.encode('utf-8')) 
     file_size = curr_file.tell()    #get size of write buffer so that we don't have to travel to disk
     if  file_size + data_size > max_size:
@@ -112,10 +111,10 @@ def scrape_reddit() -> list[dict]:
                     print(f'fetching r/{subreddit} html')
                     subreddit_response = s.get(subreddit_url, timeout=10)
                     subreddit_response.raise_for_status()
-                    time.sleep(1) 
+                    time.sleep(2) 
                 except Exception as e: #if can't find subreddit url move to next subreddit
                     print(f'Error: {e}')
-                    time.sleep(1) #very basic rate limiter
+                    time.sleep(2) #very basic rate limiter
                     break
 
                 subreddit_posts_count = 0
@@ -146,10 +145,10 @@ def scrape_reddit() -> list[dict]:
                         print(f'Fetching post: {url}')
                         post_response = s.get(url, timeout=10)
                         post_response.raise_for_status()
-                        time.sleep(1) 
+                        time.sleep(2) 
                     except Exception as e:  #if can't find post url move to next url
                         print(f'Error: {e}')
-                        time.sleep(1) 
+                        time.sleep(2) 
                         continue
                     
 
@@ -253,6 +252,7 @@ if __name__ == '__main__':
 #2. 
 
 #TO-DO
+#if 429 too many requests, implement big sleep of 5-10 seconds
 #-multithreading
 #-dynamic rate limiter
 #-slightly randomized delays
