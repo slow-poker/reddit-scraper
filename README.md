@@ -1,6 +1,19 @@
+# How to Install: *windows
+```bash
+# Clone the repository
+git clone https://github.com/slow-poker/reddit-scraper.git
+cd reddit-scraper
+
+# Install dependencies
+python3 -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+# Syntax Usage
 ```text
-usage: reddit_scraper.py [-h] (-f FILE | -t SUB1 [SUB1 ...]) [-p POSTS]
-                         [-c {hot,new,rising,controversial,top}]
+usage: reddit_scraper.py [-h] (-f FILE | -t SUB1 [SUB1 ...]) [-p POSTS] [-c {hot,new,rising,controversial,top}]
+                         [-s SIZE]
 
 Group 5 Reddit Web Scraper Part A
 
@@ -10,4 +23,15 @@ options:
   -t SUB1 [SUB1 ...], --text SUB1 [SUB1 ...]        Subreddit name(s)
   -p POSTS, --posts POSTS                           Max posts to pull per subreddit [0-1000]
   -c {hot,new,rising,controversial,top}, --category {hot,new,rising,controversial,top}
+                                                    sort by categories before scraping
+  -s SIZE, --size SIZE                              File chunk sizes for data in MB or KB
+```
+
+# Example Usage
+```text
+python .\reddit_scraper.py -f subreddits.txt -p 300 -s 10MB -c new
+-f  take in the newline delimited list of subreddits from subreddits.txt
+-p  scrape 300 posts from each subreddit given
+-s  store the data in files of size 10MB
+-c  sort by new while scraping
 ```
