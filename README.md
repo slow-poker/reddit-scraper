@@ -1,4 +1,4 @@
-#How to Install: *windows
+# How to Install: *windows
 ```bash
 # Clone the repository
 git clone https://github.com/slow-poker/reddit-scraper.git
@@ -10,7 +10,7 @@ venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-#Syntax Usage
+# Syntax Usage
 ```text
 usage: reddit_scraper.py [-h] (-f FILE | -t SUB1 [SUB1 ...]) [-p POSTS] [-c {hot,new,rising,controversial,top}]
                          [-s SIZE]
@@ -27,7 +27,7 @@ options:
   -s SIZE, --size SIZE                              File chunk sizes for data in MB or KB
 ```
 
-#Example Usage
+# Example Usage
 ```text
 python .\reddit_scraper.py -f subreddits.txt -p 300 -s 10MB -c new
 -f  take in the newline delimited list of subreddits from subreddits.txt
