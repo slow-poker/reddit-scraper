@@ -81,9 +81,25 @@ def scrape_reddit() -> list[dict]:
     if args.file:
         with open(args.file, 'r') as file:
                 subreddits = file.read().splitlines()
-    
+                file.close()
     if args.text:
         subreddits = args.text
+
+    #dir setup
+    time_now = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    dir_path = Path('Scrape-' + time_now)
+    dir_path.mkdir(parents=True, exist_ok=True)
+
+    #file setup - get first subreddit name
+    filename_counter = 0
+    data_filename = subreddits[0] + f'{filename_counter:05d}.txt'
+    data_filepath = dir_path / data_filename
+
+    try:
+        data_file = open(data_filepath, 'a', encoding='utf-8')
+    except Exception as e:
+        print(f'Error: {e}')
+        sys.exit(1)
 
     with requests.Session() as s:
         #generic user agent so that we aren't marked as a bot.
@@ -94,30 +110,28 @@ def scrape_reddit() -> list[dict]:
         #for results file
         total_posts = 0
         total_comments = 0
-
-        post_limit_flag = False
-
-        #dir setup
-        time_now = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        dir_path = Path('Scrape-' + time_now)
-        dir_path.mkdir(parents=True, exist_ok=True)
+        
         for subreddit in subreddits:
+            #user post limit
+            post_limit_flag = False
+            subreddit_posts_count = 0
+
             # limit=100 - reddit only allows 100 posts per page
             subreddit_url = 'https://old.reddit.com/r/' + subreddit + '/' + args.category + '/?limit=100'
             print(f'Beginning scrape for: {subreddit}')
+
+            #for each next button page
             while True:
                 try:
                     #send subreddit home page http request for html
                     print(f'fetching r/{subreddit} html')
                     subreddit_response = s.get(subreddit_url, timeout=10)
                     subreddit_response.raise_for_status()
-                    time.sleep(2) 
+                    time.sleep(2.5) 
                 except Exception as e: #if can't find subreddit url move to next subreddit
                     print(f'Error: {e}')
-                    time.sleep(2) #very basic rate limiter
+                    time.sleep(2.5) #very basic rate limiter
                     break
-
-                subreddit_posts_count = 0
 
                 #html parser object
                 subreddit_soup = BeautifulSoup(subreddit_response.content, 'html.parser')
@@ -127,28 +141,17 @@ def scrape_reddit() -> list[dict]:
                 post_urls = []
                 for post in posts:
                     post_urls.append('https://old.reddit.com' + post.get('data-permalink'))
-
-                #file setup
-                filename_counter = 0
-                data_filename = subreddit + f'{filename_counter:05d}.txt'
-                data_filepath = dir_path / data_filename
-                if 'data_file' not in locals() or data_file is None or data_file.closed:
-                    try:
-                        data_file = open(data_filepath, 'a', encoding='utf-8')
-                    except Exception as e:
-                        print(f'Error: {e}')
-                        sys.exit(1)
-
+                    
                 for url in post_urls:
                     try:
                         #send post page http request for html
                         print(f'Fetching post: {url}')
                         post_response = s.get(url, timeout=10)
                         post_response.raise_for_status()
-                        time.sleep(2) 
+                        time.sleep(2.5) 
                     except Exception as e:  #if can't find post url move to next url
                         print(f'Error: {e}')
-                        time.sleep(2) 
+                        time.sleep(2.5) 
                         continue
                     
 
@@ -177,7 +180,6 @@ def scrape_reddit() -> list[dict]:
                     
                     #write post to data_file
                     try:
-                        data_file = open(data_filepath, 'a', encoding='utf-8')
                         data_file, filename_counter = write_with_check(post_data, data_file, subreddit, filename_counter)
                     except Exception as e:
                         print(f'Error: {e}')
@@ -203,22 +205,20 @@ def scrape_reddit() -> list[dict]:
 
                         #write comment to data_file
                         try:
-                            data_file = open(data_filepath, 'a', encoding='utf-8')
                             data_file, filename_counter = write_with_check(comment_data, data_file, subreddit, filename_counter)
                         except Exception as e:
                             print(f'Error: {e}')
                             sys.exit(1)
                         total_comments += 1
-                    print(f'Finished parsing: {url}\n')
+                    print(f'Finished parsing:\n')
 
                     #user set limit
                     if subreddit_posts_count >= args.posts:
-                        if 'data_file' in locals() and data_file is not None and not data_file.closed:
-                            data_file.close()
                         print('Subreddit post limit reached, closing last r/{subreddit} file')
                         post_limit_flag = True
                         break
 
+                #stop getting new next buttons
                 if post_limit_flag:
                     break
                     
@@ -229,13 +229,16 @@ def scrape_reddit() -> list[dict]:
                 else:
                     print(f'Fully scraped: r/{subreddit}')
                     break
-                    #possibly move scope down one...?
                 
             #force new filenames for new subreddit
-            if 'data_file' in locals() and data_file is not None and not data_file.closed:
-                data_file.close()
-                print('Closed last file')
-        results_file(dir_path, total_posts, total_comments)
+            data_file.close()
+            print(f'Closed last file for {subreddit}')
+
+    results_file(dir_path, total_posts, total_comments)
+
+
+
+  
             
 
 
