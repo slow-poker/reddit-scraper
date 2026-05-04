@@ -26,8 +26,8 @@ parser = argparse.ArgumentParser(
 input_opt = parser.add_mutually_exclusive_group(required=True)
 input_opt.add_argument('-f', '--file', help='File path to subreddit list')
 input_opt.add_argument('-t', '--text', nargs='+', metavar='SUB1', help='Subreddit name(s)')
-parser.add_argument('-p', '--posts', type=int, default=10, help='Max posts to pull per subreddit [0-1000]')
-parser.add_argument('-c', '--category', choices=['hot', 'new', 'rising', 'controversial', 'top'], default='new')
+parser.add_argument('-p', '--posts', type=int, default=3, help='Max posts to pull per subreddit [0-1000]')
+parser.add_argument('-c', '--category', choices=['hot', 'new', 'rising', 'controversial', 'top'], default='new', help='sort by categories before scraping')
 parser.add_argument('-s', '--size', default='1kb', help='File chunk sizes for data in MB or KB')
 
 #TO-DO
@@ -106,17 +106,17 @@ def scrape_reddit() -> list[dict]:
             # limit=100 - reddit only allows 100 posts per page
             subreddit_url = 'https://old.reddit.com/r/' + subreddit + '/' + args.category + '/?limit=100'
             print(f'Beginning scrape for: {subreddit}')
-
             while True:
                 try:
-                    #send subreddit home page http request
+                    #send subreddit home page http request for html
                     print(f'fetching r/{subreddit} html')
                     subreddit_response = s.get(subreddit_url, timeout=10)
                     subreddit_response.raise_for_status()
+                    time.sleep(1) 
                 except Exception as e: #if can't find subreddit url move to next subreddit
                     print(f'Error: {e}')
+                    time.sleep(1) #very basic rate limiter
                     break
-
 
                 subreddit_posts_count = 0
 
@@ -139,16 +139,20 @@ def scrape_reddit() -> list[dict]:
                     except Exception as e:
                         print(f'Error: {e}')
                         sys.exit(1)
-                
 
                 for url in post_urls:
                     try:
+                        #send post page http request for html
                         print(f'Fetching post: {url}')
                         post_response = s.get(url, timeout=10)
                         post_response.raise_for_status()
+                        time.sleep(1) 
                     except Exception as e:  #if can't find post url move to next url
                         print(f'Error: {e}')
+                        time.sleep(1) 
                         continue
+                    
+
                     page_soup = BeautifulSoup(post_response.content, 'html.parser')
                     #only the post has 'sitetable linklisting' not comments
                     page_post = page_soup.find(class_='sitetable linklisting').find('div')
@@ -232,6 +236,7 @@ def scrape_reddit() -> list[dict]:
             if 'data_file' in locals() and data_file is not None and not data_file.closed:
                 data_file.close()
                 print('Closed last file')
+        results_file(dir_path, total_posts, total_comments)
             
 
 
@@ -248,10 +253,8 @@ if __name__ == '__main__':
 #2. 
 
 #TO-DO
-#file chunking
-#time checks
 #-multithreading
-#-rate limiting ~ 60 requests per minute 
+#-dynamic rate limiter
 #-slightly randomized delays
 
 #FIXES
