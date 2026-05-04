@@ -2,12 +2,14 @@
 #argeparse formatting https://stackoverflow.com/questions/52605094/python-argparse-increase-space-between-parameter-and-description
 
 import requests
-import json
 import argparse
 import sys
+import os
 import time
 import random
+from datetime import datetime
 from bs4 import BeautifulSoup
+from pathlib import Path
 
 #callback shenanigans for formatting help menu
 def wide_formatter(prog):
@@ -26,22 +28,58 @@ input_opt.add_argument('-f', '--file', help='File path to subreddit list')
 input_opt.add_argument('-t', '--text', nargs='+', metavar='SUB1', help='Subreddit name(s)')
 parser.add_argument('-p', '--posts', type=int, default=10, help='Max posts to pull per subreddit [0-1000]')
 parser.add_argument('-c', '--category', choices=['hot', 'new', 'rising', 'controversial', 'top'], default='new')
-
+parser.add_argument('-s', '--size', default='1kb', help='File chunk sizes for data in MB or KB')
 
 #TO-DO
-# parser.add_argument('-s', '--size', default='10MB', help='File chunk sizes for data') 
 # parser.add_argument('-v', '--verbose', action='store_true', help='Increase output verbosity')
 args = parser.parse_args()
 
-def scrape_reddit() -> list[dict]:
+#convert args.size to MB or KB
+if args.size:
+    file_size_units = args.size.upper()[-2:]
+    file_size_int = int(args.size[:-2])
+    if file_size_units == 'MB':
+        max_size = file_size_int * 1024 * 1024 #convert to MB
+    elif file_size_units == 'KB':
+        max_size = file_size_int * 1024 #convert to KB
+    else:
+        raise argparse.ArgumentTypeError(f"Invalid size format: '{args.size}'. Use '1kb', '2MB', etc.")
+
+#handles file size checks and writes - assumes it is called within a try{} block to reduce overhead
+def write_with_check(dict_data, curr_file, subreddit, counter):
+    data = str(dict_data)
+    data_size = len(data.encode('utf-8')) 
+    file_size = os.path.getsize(curr_file.name)
+    if  file_size + data_size > max_size:
+        curr_file.close()
+        counter += 1
+        new_filename = f"{subreddit}{counter:03d}.txt" #COMEBACK TO-DO
+        new_file = open(new_filename, 'a', encoding='utf-8')
+        new_file.write(data)
+        return new_file, counter
     
+    curr_file.write(data)
+    return curr_file, counter
+
+#write the results of the scrape to results.txt
+def results_file(dir_path, posts_count, comments_count):
+    results = dir_path / 'results.txt'
+    with open(results_file, 'a', encoding='utf-8') as file:
+        output = ('''FINAL RESULTS\n 
+                +-----------------------------------------+\n
+                posts scraped: {}\n
+                comments scraped: {}\n
+                +-----------------------------------------+\n'''
+                .format(posts_count, comments_count)
+                )
+        file.write(output)
+        file.close()
+
+
+def scrape_reddit() -> list[dict]:
     if args.file:
-        try:
-            with open(args.file, 'r') as file:
+        with open(args.file, 'r') as file:
                 subreddits = file.read().splitlines()
-        except Exception as e:
-            print(f'Error: {e}')
-            sys.exit(1)
     
     if args.text:
         subreddits = args.text
@@ -52,100 +90,123 @@ def scrape_reddit() -> list[dict]:
                 'User-Agent' : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36'
             })
 
+        #for results file
         posts_count = 0
         comments_count = 0
+
+        #dir setup
+        time_now = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        dir_path = Path(time_now)
+        dir_path.mkdir(parents=True, exist_ok=True)
         for subreddit in subreddits:
             # limit=100 - reddit only allows 100 posts per page
-            subreddit_url = 'https://old.reddit.com/r/' + subreddit + '/' + args.category + '/?limit=1'
+            subreddit_url = 'https://old.reddit.com/r/' + subreddit + '/' + args.category + '/?limit=100'
             print(f'Beginning scrape for: {subreddit}')
 
-            try:
-                while True:
+            while True:
+                try:
                     #send subreddit home page http request
                     print(f'fetching r/{subreddit} html')
                     subreddit_response = s.get(subreddit_url, timeout=10)
                     subreddit_response.raise_for_status()
+                except Exception as e:
+                    print(f'Error: {e}')
 
-                    #html parser object
-                    subreddit_soup = BeautifulSoup(subreddit_response.content, 'html.parser')
+                #html parser object
+                subreddit_soup = BeautifulSoup(subreddit_response.content, 'html.parser')
 
-                    #only posts have data-rank attribute
-                    posts = subreddit_soup.find_all('div', attrs={'data-rank' : True} )
-                    post_urls = []
-                    for post in posts:
-                        post_urls.append('https://old.reddit.com' + post.get('data-permalink'))
+                #only posts have data-rank attribute
+                posts = subreddit_soup.find_all('div', attrs={'data-rank' : True} )
+                post_urls = []
+                for post in posts:
+                    post_urls.append('https://old.reddit.com' + post.get('data-permalink'))
 
-                    for url in post_urls:
-                        print(f'Fetching post: {url}')
-                        post_response = s.get(url, timeout=10)
-                        post_response.raise_for_status()
-                        page_soup = BeautifulSoup(post_response.content, 'html.parser')
-                        #only the post has 'sitetable linklisting' not comments
-                        page_post = page_soup.find(class_='sitetable linklisting').find('div')
+                #file setup
+                filename_counter = 0
+                data_filename = subreddit + str(filename_counter)
+                data_filepath = dir_path / data_filename
+                if 'data_file' not in locals() or data_file is None or data_file.closed:
+                    try:
+                        data_file = open(data_filepath, 'a')
+                    except Exception as e:
+                        print(f'Error: {e}')
+                        sys.exit(1)
+                
 
-                        with open('output.txt', 'a', encoding='utf-8') as file:
-                            print(f'Parsing post and comments...')
-                            post_data = {
+                for url in post_urls:
+                    print(f'Fetching post: {url}')
+                    post_response = s.get(url, timeout=10)
+                    post_response.raise_for_status()
+                    page_soup = BeautifulSoup(post_response.content, 'html.parser')
+                    #only the post has 'sitetable linklisting' not comments
+                    page_post = page_soup.find(class_='sitetable linklisting').find('div')
+
+                    try:
+                        print(f'Parsing post and comments...')
+                        post_data = {
+                            'subreddit_name' : subreddit,
+                            'title' : page_post.find('a', class_='title').get_text(),
+                            'post-id' : page_post.get('data-fullname'),
+                            'author' : page_post.get('data-author'),
+                            'author-id' : page_post.get('data-author-fullname'),
+                            'url' : url,
+                            'attached-url' : page_post.get('data-url') if page_post.get('data-url') != page_post.get('data-permalink') else "None",
+                            'date-posted' : page_post.find('time').get('title'),
+                            'live-timestamp' : page_post.find('time', class_='live-timestamp').get_text(),
+                            'score' : page_post.get('data-score', 'Unknown'), #some subreddits hide scores for the first 60mins
+                            'comments' : page_post.get('data-comments-count'),
+                            'promoted' : page_post.get('data-promoted'),
+                            'nsfw' : page_post.get('data-nsfw'),
+                            'golds' : page_post.get('data-gildings'),  
+                            'content': div.get_text() if (div := page_post.find('div', class_='md')) else "None"
+                        }
+                        
+                        #write post to data_file
+                        try:
+                            data_file = open(data_filepath, 'a')
+                        except Exception as e:
+                            print(f'Error: {e}')
+                            sys.exit(1)
+                        data_file, filename_counter = write_with_check(post_data, data_file, subreddit, filename_counter)
+                        posts_count += 1
+                        
+                        comments = page_soup.find_all('div', attrs={'data-type' : 'comment'})
+                        for comment in comments:
+                            comment_data = {
                                 'subreddit_name' : subreddit,
-                                'title' : page_post.find('a', class_='title').get_text(),
-                                'post-id' : page_post.get('data-fullname'),
-                                'author' : page_post.get('data-author'),
-                                'author-id' : page_post.get('data-author-fullname'),
-                                'url' : url,
-                                'attached-url' : page_post.get('data-url') if page_post.get('data-url') != page_post.get('data-permalink') else "None",
-                                'date-posted' : page_post.find('time').get('title'),
-                                'live-timestamp' : page_post.find('time', class_='live-timestamp').get_text(),
-                                'score' : page_post.get('data-score', 'Unknown'), #some subreddits hide scores for the first 60mins
-                                'comments' : page_post.get('data-comments-count'),
-                                'promoted' : page_post.get('data-promoted'),
-                                'nsfw' : page_post.get('data-nsfw'),
-                                'golds' : page_post.get('data-gildings'),  
-                                'content': div.get_text() if (div := page_post.find('div', class_='md')) else "None"
+                                'post-id' : post_data['post-id'],
+                                'comment-id' : comment.get('data-fullname'),
+                                'author' : comment.get('data-author'),
+                                'author-id' : comment.get('data-author-fullname'),
+                                'url' : 'https://old.reddit.com' + comment.get('data-permalink'), 
+                                'data-commented' : comment.find('time').get('title'),
+                                'live-timestamp' : comment.find('time').get_text(), 
+                                'score' : comment.find('span', class_=['score unvoted', 'score-hidden']).get_text(), #some subreddits hide scores for the first 60mins
+                                'replies' : comment.get('data-replies'),
+                                'content' : comment.find('div', class_='md').get_text()
                             }
-                            
-                            file.write(str(post_data) + '\n')
-                            posts_count += 1
-                            
-                            comments = page_soup.find_all('div', attrs={'data-type' : 'comment'})
-                            for comment in comments:
-                                comment_data = {
-                                    'subreddit_name' : subreddit,
-                                    'post-id' : post_data['post-id'],
-                                    'comment-id' : comment.get('data-fullname'),
-                                    'author' : comment.get('data-author'),
-                                    'author-id' : comment.get('data-author-fullname'),
-                                    'url' : 'https://old.reddit.com' + comment.get('data-permalink'), 
-                                    'data-commented' : comment.find('time').get('title'),
-                                    'live-timestamp' : comment.find('time').get_text(), 
-                                    'score' : comment.find('span', class_=['score unvoted', 'score-hidden']).get_text(), #some subreddits hide scores for the first 60mins
-                                    'replies' : comment.get('data-replies'),
-                                    'content' : comment.find('div', class_='md').get_text()
-                                }
-                                file.write(str(comment_data) + '\n')
-                                comments_count += 1
 
-                                if posts_count >= args.posts:
-                                    with open('results.txt', 'a', encoding='utf-8') as file:
-                                        output = ('''FINAL RESULTS\n 
-                                                +-----------------------------------------+\n
-                                                posts scraped: {}\n
-                                                comments scraped: {}\n
-                                                +-----------------------------------------+\n'''
-                                                .format(posts_count, comments_count)
-                                                )
-                                        file.write(output)
-                                    return
+                            #write comment to data_file
+                            data_file, filename_counter = write_with_check(post_data, data_file, subreddit, filename_counter)
+                            comments_count += 1
                             print(f'Finished parsing: {url}\n')
 
-                    subreddit_url = subreddit_soup.find('span', class_='next-button')
-                    if subreddit_url:
-                        subreddit_url = subreddit_url.find('a').get('href')
-                    else:
-                        break
+                        #clean end
+                        if posts_count >= args.posts:
+                            results_file(dir_path, posts_count, comments_count)
+                            return
+                    
+                    #dirty end
+                    finally:
+                        if 'data_file' in locals() and data_file is not None and not data_file.closed():
+                            data_file.close()
+                            print('Closed last file')
 
-            except Exception as e:
-                print(f'Error: {e}')
-                sys.exit(1)
+                subreddit_url = subreddit_soup.find('span', class_='next-button')
+                if subreddit_url:
+                    subreddit_url = subreddit_url.find('a').get('href')
+                else:
+                    break
             
 
 
@@ -162,9 +223,7 @@ if __name__ == '__main__':
 #2. 
 
 #TO-DO
-#file storage
-#----double check main and make seperate file for stats
-#change from json to csv i think
+#file chunking
 #time checks
 #-multithreading
 #-rate limiting ~ 60 requests per minute 
