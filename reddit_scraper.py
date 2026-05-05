@@ -76,6 +76,14 @@ def results_file(dir_path, total_posts, total_comments):
         file.write(output)
         file.close()
 
+def detect_duplicates(post_data,  unique_posts):
+    id_value = post_data['post-id']
+    if id_value not in unique_posts:
+        unique_posts.add()
+        return False
+    return True
+    
+
 
 def scrape_reddit() -> list[dict]:
     if args.file:
@@ -84,6 +92,8 @@ def scrape_reddit() -> list[dict]:
                 file.close()
     if args.text:
         subreddits = args.text
+
+    unique_posts = set()
 
     #dir setup
     time_now = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -177,15 +187,18 @@ def scrape_reddit() -> list[dict]:
                         'golds' : page_post.get('data-gildings'),  
                         'content': div.get_text() if (div := page_post.find('div', class_='md')) else "None"
                     }
+
+                    is_dupe = detect_duplicates(post_data, unique_posts)
                     
                     #write post to data_file
-                    try:
-                        data_file, filename_counter = write_with_check(post_data, data_file, subreddit, filename_counter)
-                    except Exception as e:
-                        print(f'Error: {e}')
-                        sys.exit(1)
-                    total_posts += 1
-                    subreddit_posts_count += 1
+                    if not is_dupe:
+                        try:
+                            data_file, filename_counter = write_with_check(post_data, data_file, subreddit, filename_counter)
+                        except Exception as e:
+                            print(f'Error: {e}')
+                            sys.exit(1)
+                        total_posts += 1
+                        subreddit_posts_count += 1
                     
                     comments = page_soup.find_all('div', attrs={'data-type' : 'comment'})
                     for comment in comments:
@@ -203,13 +216,17 @@ def scrape_reddit() -> list[dict]:
                             'content' : comment.find('div', class_='md').get_text()
                         }
 
+                        is_dupe = detect_duplicates(post_data, unique_posts)
+
                         #write comment to data_file
-                        try:
-                            data_file, filename_counter = write_with_check(comment_data, data_file, subreddit, filename_counter)
-                        except Exception as e:
-                            print(f'Error: {e}')
-                            sys.exit(1)
-                        total_comments += 1
+                        if not is_dupe:
+                            try:
+                                data_file, filename_counter = write_with_check(comment_data, data_file, subreddit, filename_counter)
+                            except Exception as e:
+                                print(f'Error: {e}')
+                                sys.exit(1)
+                            total_comments += 1
+
                     print(f'Finished parsing:\n')
 
                     #user set limit
