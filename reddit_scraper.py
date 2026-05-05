@@ -79,7 +79,7 @@ def results_file(dir_path, total_posts, total_comments):
 def detect_duplicates(post_data,  unique_posts):
     id_value = post_data['post-id']
     if id_value not in unique_posts:
-        unique_posts.add()
+        unique_posts.add(id_value)
         return False
     return True
     
@@ -231,7 +231,7 @@ def scrape_reddit() -> list[dict]:
 
                     #user set limit
                     if subreddit_posts_count >= args.posts:
-                        print('Subreddit post limit reached, closing last r/{subreddit} file')
+                        print(f'Subreddit post limit reached')
                         post_limit_flag = True
                         break
 
