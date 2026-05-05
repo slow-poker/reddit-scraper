@@ -27,7 +27,7 @@ input_opt.add_argument('-f', '--file', help='File path to subreddit list')
 input_opt.add_argument('-t', '--text', nargs='+', metavar='SUB1', help='Subreddit name(s)')
 parser.add_argument('-p', '--posts', type=int, default=3, help='Max posts to pull per subreddit [0-1000]')
 parser.add_argument('-c', '--category', choices=['hot', 'new', 'rising', 'controversial', 'top'], default='new', help='sort by categories before scraping')
-parser.add_argument('-s', '--size', default='1kb', help='File chunk sizes for data in MB or KB')
+parser.add_argument('-s', '--size', default='10mb', help='File chunk sizes for data in MB or KB')
 
 #TO-DO
 # parser.add_argument('-o', '--output-dir', help='File path / name of output dir')
