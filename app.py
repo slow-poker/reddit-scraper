@@ -98,7 +98,7 @@ HTML_TEMPLATE = """
 <body>
 
     <div class="search-container">
-        <h2>Reddit Search Engine Engine (PyLucene)</h2>
+        <h2>Reddit Search Engine Engine</h2>
         <form method="GET" action="/">
             <input type="text" name="q" value="{{ query }}" placeholder="Search Reddit posts & comments..." required>
             <button type="submit">Search</button>
