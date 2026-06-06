@@ -35,3 +35,36 @@ python .\reddit_scraper.py -f subreddits.txt -p 300 -s 10MB -c new
 -s  store the data in files of size 10MB
 -c  sort by new while scraping
 ```
+
+---
+# Setup Indexer 
+This should work in both powershell and bash, simply copy and paste it into your terminal.
+
+Requires Docker to be installed
+
+Windows: https://docs.docker.com/desktop/setup/install/windows-install/
+
+Mac: https://docs.docker.com/desktop/setup/install/mac-install/
+```bash
+#download repo
+git clone https://github.com/dillonhoh/reddit-scraper.git
+cd reddit-scraper
+
+#build and run container
+docker build -t 172index .
+docker run -dit -p 127.0.0.1:5000:5000 --name 172index 172index
+
+#download dependencies
+docker exec 172index pip install -r requirements.txt
+
+#run indexer
+docker exec 172index python3 index_reddit.py "newscrape/gaming00000.txt" reddit_index
+
+#run webapge at http://127.0.0.1:5000/
+docker exec 172index python3 app.py
+cd ..
+
+#to stop the container run:
+#docker stop 172index
+#docker rm 172index
+```
