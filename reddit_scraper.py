@@ -9,6 +9,7 @@ import random
 from datetime import datetime
 from bs4 import BeautifulSoup
 from pathlib import Path
+import json
 
 #callback shenanigans for formatting help menu
 def wide_formatter(prog):
@@ -47,7 +48,7 @@ if args.size:
 
 #handles file size checks and writes - assumes it is called within a try{} block to reduce overhead
 def write_with_check(dict_data, curr_file, subreddit, counter):
-    data = str(dict_data) + '\n'
+    data = json.dumps(dict_data, ensure_ascii=False) + '\n'
     data_size = len(data.encode('utf-8')) 
     file_size = curr_file.tell()    #get size of write buffer so that we don't have to travel to disk
     if  file_size + data_size > max_size:
@@ -77,7 +78,9 @@ def results_file(dir_path, total_posts, total_comments):
         file.close()
 
 def detect_duplicates(post_data,  unique_posts):
-    id_value = post_data['post-id']
+    id_value = post_data.get('comment-id') or post_data.get('post-id')
+    if id_value is None:
+        return False
     if id_value not in unique_posts:
         unique_posts.add(id_value)
         return False
@@ -185,7 +188,7 @@ def scrape_reddit() -> list[dict]:
                         'promoted' : page_post.get('data-promoted'),
                         'nsfw' : page_post.get('data-nsfw'),
                         'golds' : page_post.get('data-gildings'),  
-                        'content': div.get_text() if (div := page_post.find('div', class_='md')) else "None"
+                        'content': div.get_text() if (div := page_post.find('div', class_='md')) else None
                     }
 
                     is_dupe = detect_duplicates(post_data, unique_posts)
@@ -202,6 +205,7 @@ def scrape_reddit() -> list[dict]:
                     
                     comments = page_soup.find_all('div', attrs={'data-type' : 'comment'})
                     for comment in comments:
+                        cdiv = comment.find('div', class_='md')
                         comment_data = {
                             'subreddit_name' : subreddit,
                             'post-id' : post_data['post-id'],
@@ -213,10 +217,10 @@ def scrape_reddit() -> list[dict]:
                             'live-timestamp' : comment.find('time').get_text(), 
                             'score' : comment.find('span', class_=['score unvoted', 'score-hidden']).get_text(), #some subreddits hide scores for the first 60mins
                             'replies' : comment.get('data-replies'),
-                            'content' : comment.find('div', class_='md').get_text()
+                            'content' : cdiv.get_text() if cdiv else None
                         }
 
-                        is_dupe = detect_duplicates(post_data, unique_posts)
+                        is_dupe = detect_duplicates(comment_data, unique_posts)
 
                         #write comment to data_file
                         if not is_dupe:
