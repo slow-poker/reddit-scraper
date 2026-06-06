@@ -1,4 +1,4 @@
 FROM coady/pylucene:latest
 WORKDIR /app
-COPY  ./reddit-scraper /app
+COPY  . /app
 CMD ["python3"]
